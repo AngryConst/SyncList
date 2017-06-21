@@ -612,8 +612,8 @@ void tCoreSync::syncInThread(tDiffTable *table)
 
 				arguments.clear();
                 arguments << baseArguments;
-                if((currentFile->source.size/1024/1024) > 1024)
-                    arguments << "-v1g"; //Делаем архив многотомным, только если размер файла больше гигабайта
+//                if((currentFile->source.size/1024/1024) > 1024)
+//                    arguments << "-v1g"; //Делаем архив многотомным, только если размер файла больше гигабайта
 
                 arguments << mDstDir + "/" +
                              currentFile->destination.relatePath() + "/" +

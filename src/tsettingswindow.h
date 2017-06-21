@@ -3,6 +3,10 @@
 
 #include <QDialog>
 #include <QSettings>
+#include <QPlainTextEdit>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 #include "tcoresync.h"
 
 namespace Ui {
@@ -28,6 +32,10 @@ private slots:
 
     void on_findProgramButton_clicked();
 
+    void on_pushButtonAddArgs_clicked();
+
+    void slotOnDeletePushButton(QPushButton *button);
+
 private:
 	void readSettings();
 
@@ -37,6 +45,17 @@ private:
 	Ui::tSettingsWindow *ui;
 
 	QSettings *settWindow;
+
+    QWidget *centralW;
+
+    QVector< QLabel* > mLabelArgs;
+    QVector< QPlainTextEdit* > mArgsDescription;
+    QVector< QPushButton* > mDeleteArgsButtons;
+    QVector< QVBoxLayout* > mVBoxLayouts;
+    QVector< QHBoxLayout* > mHBoxLayouts;
+    QVector< QWidget*     > mWigets;
+
+    bool eventFilter(QObject *obj, QEvent *evt);
 };
 
 #endif // TSETTINGSWINDOW_H
