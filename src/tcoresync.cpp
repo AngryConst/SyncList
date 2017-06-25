@@ -618,7 +618,7 @@ void tCoreSync::syncInThread(tDiffTable *table)
 //                if((currentFile->source.size/1024/1024) > 1024)
 //                    arguments << "-v1g"; //Делаем архив многотомным, только если размер файла больше гигабайта
 //                arguments = mArgsProgram;
-                arguments = mArgsProgram.split(" ",QString::SkipEmptyParts);
+                arguments = mArgsProgram.split("#",QString::SkipEmptyParts);
                 arguments.replaceInStrings("{DESTINATION}", mDstDir + "/" +
                                   currentFile->destination.relatePath() + "/" +
                                   file.completeBaseName());

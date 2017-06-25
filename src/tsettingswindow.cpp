@@ -106,6 +106,7 @@ void tSettingsWindow::readSettings()
         }
         settWindow->endArray();
 	settWindow->endGroup();
+    on_lineEditArgumentsOrder_textChanged("");
 }
 
 //******************************************************************************
@@ -253,8 +254,10 @@ QString tSettingsWindow::parseArguments()
 
     for(int i=0; i<mLabelArgs.size() && !mLabelArgs.isEmpty(); ++i)
     {
+        // Вместо пробела используется #, т.к. предполагается, что в агрументах
+        // символ # не используется
         textArgs.replace(mLabelArgs.at(i)->text(),
-                         mArgsDescription.at(i)->toPlainText().replace("\n", " ").trimmed(),
+                         mArgsDescription.at(i)->toPlainText().replace("\n", "#").trimmed(),
                          Qt::CaseSensitive);
     }
 
@@ -455,7 +458,7 @@ bool tSettingsWindow::eventFilter(QObject *obj, QEvent *evt)
 
 void tSettingsWindow::on_lineEditArgumentsOrder_textChanged(const QString &/*arg1*/)
 {
-    ui->lineEditArgumentsOrder->setToolTip( parseArguments() );
+    ui->lineEditArgumentsOrder->setToolTip( parseArguments().replace("#", " ") );
 }
 
 void tSettingsWindow::slotOnArgsDescription_Changed()
