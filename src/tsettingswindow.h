@@ -21,6 +21,9 @@ public:
 	explicit tSettingsWindow(QWidget *parent = 0);
 	~tSettingsWindow();
 
+    QString getFullProgramPath();
+    QString getParsedArgs();
+
 signals:
 	void signalSettingsChanged();		   //!< Сигнал, излучающийся при изменении настроек.
 
@@ -47,6 +50,7 @@ private:
     void moveEvent(QMoveEvent *);
 
     bool checkAndCorrectArgs(QString &args);
+    void createDynamicInterface(QString nameArg, QString descArg);
 
     QString parseArguments();
 

@@ -15,7 +15,8 @@
 //******************************************************************************
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
-	ui(new Ui::MainWindow), countEq(0), countNew(0), countLate(0)
+    ui(new Ui::MainWindow), countEq(0), countNew(0), countLate(0),
+    commonSettings(nullptr)
 {
 	mSplitter = new QSplitter(Qt::Vertical, this);
 
@@ -71,6 +72,10 @@ ui->tableOfDifference->installEventFilter(this);
 	readSettings();
 
 	emit signalNeedRecord( ui->recordLogButton->isChecked() );
+
+    // Создадим окно настроек, но не будем показывать его
+    if( !commonSettings )
+        commonSettings = new tSettingsWindow(this);
 }
 
 //******************************************************************************
@@ -663,7 +668,8 @@ void MainWindow::slotCopyToClipboard()
 void MainWindow::on_actionShowSettingsWindow_triggered()
 {
 	// Если вызвали настройки в меню, то покажем окно
-	commonSettings = new tSettingsWindow(this);
+    if( !commonSettings )
+        commonSettings = new tSettingsWindow(this);
 
 	commonSettings->show();
 }

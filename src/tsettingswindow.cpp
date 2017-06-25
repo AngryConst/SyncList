@@ -44,7 +44,17 @@ tSettingsWindow::tSettingsWindow(QWidget *parent) :
 //******************************************************************************
 tSettingsWindow::~tSettingsWindow()
 {
-	delete ui;
+    delete ui;
+}
+
+QString tSettingsWindow::getFullProgramPath()
+{
+    return ui->pathProgramLineEdit->text();
+}
+
+QString tSettingsWindow::getParsedArgs()
+{
+    return parseArguments();
 }
 
 //******************************************************************************
@@ -61,8 +71,16 @@ void tSettingsWindow::writeProgramSetting()
 {
 	settWindow->beginGroup("SettingsProgram");
 		settWindow->setValue("ProgramProcessorPath", ui->pathProgramLineEdit->text());
-//		settWindow->setValue("ProgramProcessorArgs", ui->argumentsProgramTextEdit->toPlainText());
+        settWindow->setValue("ArgumentsOrder", ui->lineEditArgumentsOrder->text());
 
+        settWindow->beginWriteArray("ArgumentsDescription");
+            for(int i = 0; i<mLabelArgs.size() && !mLabelArgs.isEmpty(); ++i)
+            {
+                settWindow->setArrayIndex(i);
+                settWindow->setValue("Name", mLabelArgs.at(i)->text());
+                settWindow->setValue("Description", mArgsDescription.at(i)->toPlainText().trimmed());
+            }
+        settWindow->endArray();
 	settWindow->endGroup();
 }
 
@@ -74,10 +92,19 @@ void tSettingsWindow::readSettings()
 		move(settWindow->value("Position", QPoint(200, 200)).toPoint());
 	settWindow->endGroup();
 
+    QString nameArg;
+    QString descArg;
 	settWindow->beginGroup("SettingsProgram");
 		ui->pathProgramLineEdit->setText(settWindow->value("ProgramProcessorPath", QString()).toString());
-//		ui->argumentsProgramTextEdit->setPlainText(settWindow->value("ProgramProcessorArgs", QString()).toString());
-
+        ui->lineEditArgumentsOrder->setText(settWindow->value("ArgumentsOrder").toString());
+        int size = settWindow->beginReadArray("ArgumentsDescription");
+        for (int i = 0; i < size; ++i) {
+            settWindow->setArrayIndex(i);
+            nameArg = settWindow->value("Name").toString();
+            descArg = settWindow->value("Description").toString();
+            createDynamicInterface(nameArg,descArg);
+        }
+        settWindow->endArray();
 	settWindow->endGroup();
 }
 
@@ -132,53 +159,29 @@ bool tSettingsWindow::checkAndCorrectArgs(QString &args)
     return true;
 }
 
-//******************************************************************************
-QString tSettingsWindow::parseArguments()
+void tSettingsWindow::createDynamicInterface(QString nameArg, QString descArg)
 {
-    QString textArgs = ui->lineEditArgumentsOrder->text();
-
-    for(int i=0; i<mLabelArgs.size() && !mLabelArgs.isEmpty(); ++i)
+    if(nameArg.isEmpty())
     {
-        textArgs.replace(mLabelArgs.at(i)->text(),
-                         mArgsDescription.at(i)->toPlainText().replace("\n", " ").trimmed(),
-                         Qt::CaseSensitive);
-    }
-
-    return textArgs;
-}
-
-//******************************************************************************
-void tSettingsWindow::on_findProgramButton_clicked()
-{
-    QFileDialog dlg( this );
-    dlg.setFileMode( QFileDialog::ExistingFile );
-    dlg.exec();
-
-    ui->pathProgramLineEdit->setText( dlg.selectedFiles().first() );
-    emit signalSettingsChanged();
-}
-
-//******************************************************************************
-void tSettingsWindow::on_pushButtonAddArgs_clicked()
-{
-    bool ok;
-    QString text = QInputDialog::getText(this, tr("Создание группы аргументов"),
-                                       tr("Введите название:"), QLineEdit::Normal,
-                                       QString("ARG"), &ok);
-    if (ok && !text.isEmpty())
-    {
-        if( !checkAndCorrectArgs(text) )
+        bool ok;
+        nameArg = QInputDialog::getText(this, tr("Создание группы аргументов"),
+                                        tr("Введите название:"), QLineEdit::Normal,
+                                        QString("ARG"), &ok);
+        if (ok && !nameArg.isEmpty())
         {
-            QMessageBox msgBox;
-            msgBox.setText("Введённый аргумент уже существует");
-            msgBox.exec();
+            if( !checkAndCorrectArgs(nameArg) )
+            {
+                QMessageBox msgBox;
+                msgBox.setText("Введённый аргумент уже существует");
+                msgBox.exec();
 
-            return;
+                return;
+            }
+
         }
-
+        else
+            return;
     }
-    else
-        return;
 
     //Сделаем в окне настроек подвиждет с тремя элементами и двумя layout-ами
 
@@ -215,7 +218,7 @@ void tSettingsWindow::on_pushButtonAddArgs_clicked()
     vlayout->addLayout(hlayout);
 
     QLabel *labelArg = new QLabel(/*hlayout*/);
-    labelArg->setText(text);
+    labelArg->setText(nameArg);
     labelArg->setAutoFillBackground(true);
     labelArg->setMouseTracking(true);
     labelArg->setAttribute(Qt::WA_Hover);
@@ -226,6 +229,7 @@ void tSettingsWindow::on_pushButtonAddArgs_clicked()
     deleteArgButton->installEventFilter(this);
 
     QPlainTextEdit *argDescription = new QPlainTextEdit(/*vlayout*/);
+    argDescription->setPlainText(descArg);
 
     hlayout->addWidget(labelArg);
     hlayout->addWidget(deleteArgButton);
@@ -240,8 +244,38 @@ void tSettingsWindow::on_pushButtonAddArgs_clicked()
     mWigets.push_back(centralW);
 
     connect(argDescription, SIGNAL(textChanged()), this, SLOT(slotOnArgsDescription_Changed()));
-//    mCurrentDeleteArgsButton = deleteArgButton;
-//    connect(this, SIGNAL(signalOnDeletePushButton(QPushButton*)), this, SLOT(slotOnDeletePushButton(deleteArgButton)) ) ;
+}
+
+//******************************************************************************
+QString tSettingsWindow::parseArguments()
+{
+    QString textArgs = ui->lineEditArgumentsOrder->text();
+
+    for(int i=0; i<mLabelArgs.size() && !mLabelArgs.isEmpty(); ++i)
+    {
+        textArgs.replace(mLabelArgs.at(i)->text(),
+                         mArgsDescription.at(i)->toPlainText().replace("\n", " ").trimmed(),
+                         Qt::CaseSensitive);
+    }
+
+    return textArgs;
+}
+
+//******************************************************************************
+void tSettingsWindow::on_findProgramButton_clicked()
+{
+    QFileDialog dlg( this );
+    dlg.setFileMode( QFileDialog::ExistingFile );
+    dlg.exec();
+
+    ui->pathProgramLineEdit->setText( dlg.selectedFiles().first() );
+    emit signalSettingsChanged();
+}
+
+//******************************************************************************
+void tSettingsWindow::on_pushButtonAddArgs_clicked()
+{
+    createDynamicInterface("", "");
 }
 
 //******************************************************************************

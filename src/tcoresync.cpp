@@ -12,6 +12,8 @@
 #include <QSettings>
 #include <QSet>
 
+#include "tsettingswindow.h"
+
 //******************************************************************************
 tCoreSync::tCoreSync() : QObject( nullptr ), mPause(false), mCancel(false)
 {
@@ -27,11 +29,9 @@ tCoreSync::~tCoreSync()
 //******************************************************************************
 void tCoreSync::readProcProgSettings()
 {
-    QSettings settWindow("CrocodileSoft", "SyncList");
-    settWindow.beginGroup("SettingsProgram");
-        mProgramProcessor = settWindow.value("ProgramProcessorPath", QString()).toString();
-        mArgsProgram = settWindow.value("ProgramProcessorArgs", QString()).toString();
-    settWindow.endGroup();
+    tSettingsWindow sett; // В конструкторе автоматически считаются настройки
+    mProgramProcessor = sett.getFullProgramPath();
+    mArgsProgram = sett.getParsedArgs();
 }
 
 //******************************************************************************
@@ -476,6 +476,7 @@ void tCoreSync::synchronization(tDiffTable *table)
 void tCoreSync::slotReadList()
 {
 	QFile output(QDir::currentPath() + QDir::separator() + "ListOfSyncFilesFromMap.xml");
+    qDebug() << QDir::currentPath() + QDir::separator() + "ListOfSyncFilesFromMap.xml";
 	if( output.open(QIODevice::ReadOnly) )
 	{
 		QXmlStreamReader xml(&output);
@@ -568,8 +569,10 @@ void tCoreSync::syncInThread(tDiffTable *table)
 	int progressValue = 0;
 
 	QString program = mProgramProcessor;
-	QStringList baseArguments = mArgsProgram.split("\n",QString::SkipEmptyParts);
-	QStringList arguments;
+    QStringList arguments;
+//	QString baseArguments = mArgsProgram.split(" ",QString::SkipEmptyParts);
+
+//    QStringList arguments = mArgsProgram.split(" ",QString::SkipEmptyParts);
 
 	// Цикл по ключам словаря(Относительный путь)
 	for(tDiffTable::iterator currentDir=table->begin(); currentDir != table->end(); ++currentDir)
@@ -610,18 +613,20 @@ void tCoreSync::syncInThread(tDiffTable *table)
 			{
                 QFileInfo file(currentFile->source.absoluteFilePath());
 
-				arguments.clear();
-                arguments << baseArguments;
+//				arguments.clear();
+//                arguments << baseArguments;
 //                if((currentFile->source.size/1024/1024) > 1024)
 //                    arguments << "-v1g"; //Делаем архив многотомным, только если размер файла больше гигабайта
-
-                arguments << mDstDir + "/" +
-                             currentFile->destination.relatePath() + "/" +
-                             file.completeBaseName() + ".7z"	//"-dest"
-						  << currentFile->source.absoluteFilePath(); //"-source"
+//                arguments = mArgsProgram;
+                arguments = mArgsProgram.split(" ",QString::SkipEmptyParts);
+                arguments.replaceInStrings("{DESTINATION}", mDstDir + "/" +
+                                  currentFile->destination.relatePath() + "/" +
+                                  file.completeBaseName());
+                arguments.replaceInStrings("{SOURCE}", currentFile->source.absoluteFilePath());
 //qDebug() << arguments;
 				QProcess myProcess;
-				myProcess.start(program, arguments);
+//                QStringList argslist( arguments );
+                myProcess.start(program, arguments);
 
 				if( !myProcess.waitForFinished(-1) )
 				{
