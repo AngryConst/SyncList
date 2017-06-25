@@ -28,19 +28,27 @@ private slots:
 	void writeWindowSetting();
 	void writeProgramSetting();
 
-	void on_argumentsProgramTextEdit_textChanged();
-
     void on_findProgramButton_clicked();
 
     void on_pushButtonAddArgs_clicked();
 
     void slotOnDeletePushButton(QPushButton *button);
 
+    void slotOnClickArgsLabel(QLabel *label);
+
+    void on_lineEditArgumentsOrder_textChanged(const QString &);
+
+    void slotOnArgsDescription_Changed();
+
 private:
 	void readSettings();
 
 	void resizeEvent(QResizeEvent *);
-	void moveEvent(QMoveEvent *);
+    void moveEvent(QMoveEvent *);
+
+    bool checkAndCorrectArgs(QString &args);
+
+    QString parseArguments();
 
 	Ui::tSettingsWindow *ui;
 

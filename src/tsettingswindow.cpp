@@ -6,7 +6,9 @@
 #include <QElapsedTimer>
 #include <QtConcurrent/QtConcurrent>
 #include <QFileDialog>
-#include <QtAlgorithms>
+//#include <QtAlgorithms>
+#include <QInputDialog>
+#include <QMessageBox>
 
 //******************************************************************************
 tSettingsWindow::tSettingsWindow(QWidget *parent) :
@@ -24,6 +26,14 @@ tSettingsWindow::tSettingsWindow(QWidget *parent) :
     centralW->setLayout(ui->verticalLayoutUserUsage);
     ui->scrollArea->setWidget(centralW);
 //    ui->scrollArea->installEventFilter(this);
+
+    ui->labelDestination->setMouseTracking(true);
+    ui->labelDestination->setAttribute(Qt::WA_Hover);
+    ui->labelDestination->installEventFilter(this);
+
+    ui->labelSource->setMouseTracking(true);
+    ui->labelSource->setAttribute(Qt::WA_Hover);
+    ui->labelSource->installEventFilter(this);
 
 	connect(this, SIGNAL(signalSettingsChanged()), SLOT(writeWindowSetting()) );
 	connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(writeProgramSetting()) );
@@ -80,13 +90,61 @@ void tSettingsWindow::resizeEvent(QResizeEvent *)
 //******************************************************************************
 void tSettingsWindow::moveEvent(QMoveEvent *)
 {
-	emit signalSettingsChanged();
+    emit signalSettingsChanged();
 }
 
 //******************************************************************************
-void tSettingsWindow::on_argumentsProgramTextEdit_textChanged()
+bool tSettingsWindow::checkAndCorrectArgs(QString &args)
 {
-//	ui->lineArgumentsEdit->setText(ui->argumentsProgramTextEdit->toPlainText().replace("\n", " ").trimmed());
+    // Поищем символы '{' и '}' и удалим их, если они были введены пользователем
+    QChar leftBrake  = '{';
+    QChar rightBrake = '}';
+    args.remove(leftBrake,  Qt::CaseInsensitive);
+    args.remove(rightBrake, Qt::CaseInsensitive);
+
+    //Теперь добавим скобки в начало и конец
+    args.push_front(leftBrake);
+    args.push_back(rightBrake);
+
+    args = args.toUpper();
+
+    // Проверим нет ли уже таких аргументов
+    bool isExist = false;
+
+    isExist = isExist || ( args == ui->labelDestination->text() );
+    if(isExist)
+        return false;
+
+    isExist = isExist || ( args == ui->labelSource->text() );
+    if(isExist)
+        return false;
+
+    if( !mLabelArgs.isEmpty() )
+    {
+        for(auto itLabel = mLabelArgs.cbegin(); itLabel!=mLabelArgs.cend(); ++itLabel)
+        {
+            isExist = isExist || ( args == (*itLabel)->text() );
+            if(isExist)
+                return false;
+        }
+    }
+
+    return true;
+}
+
+//******************************************************************************
+QString tSettingsWindow::parseArguments()
+{
+    QString textArgs = ui->lineEditArgumentsOrder->text();
+
+    for(int i=0; i<mLabelArgs.size() && !mLabelArgs.isEmpty(); ++i)
+    {
+        textArgs.replace(mLabelArgs.at(i)->text(),
+                         mArgsDescription.at(i)->toPlainText().replace("\n", " ").trimmed(),
+                         Qt::CaseSensitive);
+    }
+
+    return textArgs;
 }
 
 //******************************************************************************
@@ -100,15 +158,34 @@ void tSettingsWindow::on_findProgramButton_clicked()
     emit signalSettingsChanged();
 }
 
+//******************************************************************************
 void tSettingsWindow::on_pushButtonAddArgs_clicked()
 {
+    bool ok;
+    QString text = QInputDialog::getText(this, tr("Создание группы аргументов"),
+                                       tr("Введите название:"), QLineEdit::Normal,
+                                       QString("ARG"), &ok);
+    if (ok && !text.isEmpty())
+    {
+        if( !checkAndCorrectArgs(text) )
+        {
+            QMessageBox msgBox;
+            msgBox.setText("Введённый аргумент уже существует");
+            msgBox.exec();
+
+            return;
+        }
+
+    }
+    else
+        return;
 
     //Сделаем в окне настроек подвиждет с тремя элементами и двумя layout-ами
 
     /* |-----------------------------------------------------------------------|
-     * | Вертикальный vlayout                                                   |
+     * | Вертикальный vlayout                                                  |
      * | |-------------------------------------------------------------------| |
-     * | | Горизонтальный hlayout                                             | |
+     * | | Горизонтальный hlayout                                            | |
      * | | --------------------------------- ------------------------------  | |
      * | | |   Метка                       | |    Кнопка                  |  | |
      * | | |                               | |                            |  | |
@@ -138,7 +215,11 @@ void tSettingsWindow::on_pushButtonAddArgs_clicked()
     vlayout->addLayout(hlayout);
 
     QLabel *labelArg = new QLabel(/*hlayout*/);
-    labelArg->setText("{wifi}");
+    labelArg->setText(text);
+    labelArg->setAutoFillBackground(true);
+    labelArg->setMouseTracking(true);
+    labelArg->setAttribute(Qt::WA_Hover);
+    labelArg->installEventFilter(this);
 
     QPushButton *deleteArgButton = new QPushButton(/*hlayout*/);
     deleteArgButton->setText("delete");
@@ -158,6 +239,7 @@ void tSettingsWindow::on_pushButtonAddArgs_clicked()
     mHBoxLayouts.push_back(hlayout);
     mWigets.push_back(centralW);
 
+    connect(argDescription, SIGNAL(textChanged()), this, SLOT(slotOnArgsDescription_Changed()));
 //    mCurrentDeleteArgsButton = deleteArgButton;
 //    connect(this, SIGNAL(signalOnDeletePushButton(QPushButton*)), this, SLOT(slotOnDeletePushButton(deleteArgButton)) ) ;
 }
@@ -180,6 +262,13 @@ void tSettingsWindow::slotOnDeletePushButton(QPushButton *button)
     }
 
 
+    // Удалим упоминания имени в строке аргументов при удалении
+    QString textLabel = mLabelArgs.at(index)->text();
+    QString textOfArgumentsOrder = ui->lineEditArgumentsOrder->text();
+    textOfArgumentsOrder.remove(textLabel, Qt::CaseInsensitive);
+    ui->lineEditArgumentsOrder->setText(textOfArgumentsOrder);
+
+    mArgsDescription.at(index)->disconnect();
 
     delete mLabelArgs.at(index);
     mLabelArgs.remove(index);
@@ -201,36 +290,125 @@ void tSettingsWindow::slotOnDeletePushButton(QPushButton *button)
 
 }
 
+
+void tSettingsWindow::slotOnClickArgsLabel(QLabel *label)
+{
+    if(!label)
+    {
+        qWarning() << __PRETTY_FUNCTION__ << "Передан нулевой указатель на label";
+        return;
+    }
+
+    int cursorPos = ui->lineEditArgumentsOrder->cursorPosition();
+    ui->lineEditArgumentsOrder->insert(label->text());
+
+    ui->lineEditArgumentsOrder->setCursorPosition(cursorPos+label->text().length());
+}
+
 //******************************************************************************
 bool tSettingsWindow::eventFilter(QObject *obj, QEvent *evt)
 {
-    if( evt->type() == QEvent::KeyPress || evt->type() == QEvent::MouseButtonRelease )
+    if( evt->type() == QEvent::KeyPress )
     {
-        qDebug() << "Here1";
-        qDebug() << obj;
+        // Здесь обработаем только события клика по кнопке delete
         int index = mDeleteArgsButtons.indexOf( dynamic_cast< QPushButton* >(obj) );
-        qDebug() << index;
-    //    if( index != -1 )
-    //    {
-            if( evt->type() == QEvent::KeyPress )
+
+        if( index != -1 )
+        {
+            QKeyEvent *keyEvent = dynamic_cast< QKeyEvent* >(evt);
+            switch(keyEvent->key())
             {
-                qDebug() << "Here2";
-                QKeyEvent *keyEvent = dynamic_cast< QKeyEvent* >(evt);
-                switch(keyEvent->key())
+                case Qt::Key_Enter :
+                case Qt::Key_Space :
+                    slotOnDeletePushButton( mDeleteArgsButtons.at(index) );
+            }
+        }
+    }
+    else if( evt->type() == QEvent::MouseButtonRelease )
+    {
+
+        if( mDeleteArgsButtons.indexOf( dynamic_cast< QPushButton* >(obj) ) != -1 )
+        {
+            // Обработка событий для кнопок delete
+            QMouseEvent *mouseEvent = dynamic_cast< QMouseEvent* >(evt);
+            if(mouseEvent->button() == Qt::LeftButton)
+                slotOnDeletePushButton( static_cast< QPushButton* >(obj) );
+        }
+        else if( mLabelArgs.indexOf( dynamic_cast< QLabel* >(obj) ) != -1 )
+        {
+            // Обработка событий для клика по названию аргумента
+            QMouseEvent *mouseEvent = dynamic_cast< QMouseEvent* >(evt);
+            if(mouseEvent->button() == Qt::LeftButton)
+                slotOnClickArgsLabel(static_cast< QLabel* >(obj));
+        }
+        else if( dynamic_cast< QLabel* >(obj) == ui->labelDestination )
+        {
+            // Обработка событий для клика по ссылке {DESTINATION}
+            QMouseEvent *mouseEvent = dynamic_cast< QMouseEvent* >(evt);
+            if(mouseEvent->button() == Qt::LeftButton)
+                slotOnClickArgsLabel(static_cast< QLabel* >(obj));
+        }
+        else if( dynamic_cast< QLabel* >(obj) == ui->labelSource )
+        {
+            // Обработка событий для клика по ссылке {SOURCE}
+            QMouseEvent *mouseEvent = dynamic_cast< QMouseEvent* >(evt);
+            if(mouseEvent->button() == Qt::LeftButton)
+                slotOnClickArgsLabel(static_cast< QLabel* >(obj));
+        }
+
+    }
+    else if(evt->type() == QEvent::HoverEnter || evt->type() == QEvent::HoverLeave)
+    {
+        if( dynamic_cast< QLabel* >(obj) == ui->labelDestination )
+        {
+            if( evt->type() == QEvent::HoverEnter )
+            {
+                QFont font = ui->labelDestination->font();
+                font.setBold(true);
+                ui->labelDestination->setFont(font);
+            }
+            else if( evt->type() == QEvent::HoverLeave )
+            {
+                QFont font = ui->labelDestination->font();
+                font.setBold(false);
+                ui->labelDestination->setFont(font);
+            }
+        }
+        else if( dynamic_cast< QLabel* >(obj) == ui->labelSource )
+        {
+            if( evt->type() == QEvent::HoverEnter )
+            {
+                QFont font = ui->labelSource->font();
+                font.setBold(true);
+                ui->labelSource->setFont(font);
+            }
+            else if( evt->type() == QEvent::HoverLeave )
+            {
+                QFont font = ui->labelSource->font();
+                font.setBold(false);
+                ui->labelSource->setFont(font);
+            }
+        }
+        else
+        {
+            int index = mLabelArgs.indexOf( dynamic_cast< QLabel* >(obj) );
+
+            if( index != -1 )
+            {
+                if( evt->type() == QEvent::HoverEnter )
                 {
-                    case Qt::Key_Enter :
-                    case Qt::Key_Space :
-                        slotOnDeletePushButton( mDeleteArgsButtons.at(index) );
+                    QFont font = mLabelArgs.at(index)->font();
+                    font.setBold(true);
+                    mLabelArgs.at(index)->setFont(font);
+                }
+                else if( evt->type() == QEvent::HoverLeave )
+                {
+                    QFont font = mLabelArgs.at(index)->font();
+                    font.setBold(false);
+                    mLabelArgs.at(index)->setFont(font);
                 }
             }
-            else if( evt->type() == QEvent::MouseButtonRelease )
-            {
-                qDebug() << "Here3";
-                QMouseEvent *mouseEvent = dynamic_cast< QMouseEvent* >(evt);
-                if(mouseEvent->button() == Qt::LeftButton)
-                    slotOnDeletePushButton( mDeleteArgsButtons.at(index) );
-
-            }
+        }
     }
     else
     {
@@ -239,4 +417,14 @@ bool tSettingsWindow::eventFilter(QObject *obj, QEvent *evt)
     }
 
     return false;
+}
+
+void tSettingsWindow::on_lineEditArgumentsOrder_textChanged(const QString &/*arg1*/)
+{
+    ui->lineEditArgumentsOrder->setToolTip( parseArguments() );
+}
+
+void tSettingsWindow::slotOnArgsDescription_Changed()
+{
+    on_lineEditArgumentsOrder_textChanged("");
 }
