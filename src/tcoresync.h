@@ -8,6 +8,7 @@
 #include <QVector>
 #include <QObject>
 #include <QPair>
+#include <QSet>
 
 
 
@@ -23,7 +24,9 @@ typedef QMap<tDirectSync, QString> tDirectSyncMap;
 // Элемент для сравнения
 struct tDiffItem
 {
-	bool sync;
+    bool sync; // Требует ли синхронизации
+    bool isSync; // Был ли синхронизирован
+
 	tFileInfo source;// Файл - источник
 	tFileInfo destination; // Файл - приёмник
 	tDirectSync direction; // Направление синхронизации
@@ -36,6 +39,7 @@ struct tDiffItem
 		direction = direct_;
 
 		sync = (direction == Equal) ? true : false;
+        isSync = false;
 	}
 };
 Q_DECLARE_METATYPE(tDiffItem)
@@ -79,6 +83,7 @@ public slots:
 
 	void slotPauseSync(bool pause);
 	void slotCancelSync();
+    void slotSetExitCodes(const QString &errorCodes);
 
 private slots:
 	void synchronization(tDiffTable *table);
@@ -99,6 +104,8 @@ private:
 
 	QString mProgramProcessor;
 	QString mArgsProgram;
+
+    QSet<int> mExitCodes;
 
 	/** \brief Добавляет все найденные в подкаталогах файлы в общий список.
 	 *
@@ -132,7 +139,7 @@ private:
 	tDiffItem compareFiles(tFileInfo &real_, tFileInfo & xmlFile);
 
 	void syncInThread(tDiffTable *table);
-        void readProcProgSettings();
+    void readProcProgSettings();
 };
 
 #endif // CORESYNC_H

@@ -32,6 +32,7 @@ void tCoreSync::readProcProgSettings()
     tSettingsWindow sett; // В конструкторе автоматически считаются настройки
     mProgramProcessor = sett.getFullProgramPath();
     mArgsProgram = sett.getParsedArgs();
+    slotSetExitCodes(sett.getExitCodes());
 }
 
 //******************************************************************************
@@ -392,6 +393,7 @@ void tCoreSync::slotSaveMapToList(tDiffTable *table)
 
 				// Только если для файла выбрана синхронизация
 				if(  currentFile->sync					&&
+                     currentFile->isSync                &&
 					!currentFile->source.name.isEmpty() &&
 					(currentFile->direction != tDirectSync::Latest) )
 				{
@@ -458,7 +460,24 @@ void tCoreSync::slotPauseSync(bool pause)
 //******************************************************************************
 void tCoreSync::slotCancelSync()
 {
-	mCancel = true;
+    mCancel = true;
+}
+
+//******************************************************************************
+void tCoreSync::slotSetExitCodes(const QString &errorCodes)
+{
+    mExitCodes.clear();
+
+    QStringList errorCodeList = errorCodes.split(" ",QString::SkipEmptyParts);
+    bool ok=true;
+    int currentCode = 0;
+    for(auto &code:errorCodeList)
+    {
+        currentCode = code.toInt(&ok,10);
+        if(!ok)
+            qCritical(logCritical()) << "Ошибка при преобразовании в число строки: \"" << code <<"\"";
+        mExitCodes.insert(currentCode);
+    }
 }
 
 //******************************************************************************
@@ -594,6 +613,7 @@ void tCoreSync::syncInThread(tDiffTable *table)
 				if(mCancel)
 				{
 					mCancel = false;
+                    slotSaveMapToList( table );
 					return;
 				}
 			}
@@ -602,6 +622,7 @@ void tCoreSync::syncInThread(tDiffTable *table)
 			if(mCancel)
 			{
 				mCancel = false;
+                slotSaveMapToList( table );
 				return;
 			}
 
@@ -623,7 +644,7 @@ void tCoreSync::syncInThread(tDiffTable *table)
                                   currentFile->destination.relatePath() + "/" +
                                   file.completeBaseName());
                 arguments.replaceInStrings("{SOURCE}", currentFile->source.absoluteFilePath());
-//qDebug() << arguments;
+//qDebug() << program << arguments;
 				QProcess myProcess;
 //                QStringList argslist( arguments );
                 myProcess.start(program, arguments);
@@ -641,7 +662,30 @@ void tCoreSync::syncInThread(tDiffTable *table)
 					currentFile->sync = false;
 				}
 				else
-					qWarning(logInfo()) << currentFile->source.absoluteFilePath() << "<FONT COLOR=green>Success</FONT>";
+                {
+                    if( myProcess.exitStatus() == QProcess::NormalExit )
+                    {
+                        if( mExitCodes.contains( myProcess.exitCode() ) )
+                        {
+                            qWarning(logInfo()) << currentFile->source.absoluteFilePath() << "<FONT COLOR=green>Success</FONT>";
+                            currentFile->isSync = true;
+                        }
+                        else
+                        {
+                            qCritical(logCritical()) << "Во время синхронизации файла "
+                                                     << currentFile->source.absoluteFilePath()
+                                                     << " произошла ошибка: <FONT COLOR=red>"
+                                                     << myProcess.errorString()
+                                                     << " Код выхода: " << myProcess.exitCode()
+                                                     << "</FONT>";
+                           currentFile->sync = false;
+
+                        }
+
+                    }
+                    else
+                        currentFile->isSync = true;
+                }
 			}
 
 		} // for currentFile

@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
 
 	QObject::connect( &w,	  SIGNAL(signalPause(bool)),  &mCore, SLOT(slotPauseSync(bool)) );
 	QObject::connect( &w,	  SIGNAL(signalCancelSync()), &mCore, SLOT(slotCancelSync()) );
+    QObject::connect( w.getSettings(), SIGNAL(signalExitCodesChanged(const QString &)), &mCore, SLOT(slotSetExitCodes(const QString &)) );
 
 	QObject::connect(&mCore,  SIGNAL(signalSyncFinished()),	&w,	  SLOT(slotSyncFinished()) );
 

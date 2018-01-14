@@ -24,6 +24,8 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
+    const tSettingsWindow  * const getSettings();
+
 signals:
 	//! Сигнал передачи корневых директорий ядру, задания папки - приёмника и запуска обработки в отдельном потоке.
 	void signalMainDirs(QStringList &listSrc, QString dst);
@@ -82,6 +84,7 @@ private slots:
 	void on_cancelButton_clicked();
 
 	void on_pauseButton_clicked(bool checked);
+
 
 private:
     void readSettings();

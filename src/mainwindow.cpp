@@ -76,6 +76,8 @@ ui->tableOfDifference->installEventFilter(this);
     // Создадим окно настроек, но не будем показывать его
     if( !commonSettings )
         commonSettings = new tSettingsWindow(this);
+
+
 }
 
 //******************************************************************************
@@ -693,5 +695,11 @@ void MainWindow::on_pauseButton_clicked(bool checked)
 	if(checked)
 		qDebug(logInfo()) << "Синхронизация приостановлена пользователем";
 	else
-		qDebug(logInfo()) << "Синхронизация продолжена";
+        qDebug(logInfo()) << "Синхронизация продолжена";
+}
+
+//******************************************************************************]
+const tSettingsWindow * const MainWindow::getSettings()
+{
+    return commonSettings;
 }

@@ -23,9 +23,11 @@ public:
 
     QString getFullProgramPath();
     QString getParsedArgs();
+    QString getExitCodes();
 
 signals:
 	void signalSettingsChanged();		   //!< Сигнал, излучающийся при изменении настроек.
+    void signalExitCodesChanged(const QString &codes);
 
 private slots:
 	void writeWindowSetting();
@@ -42,6 +44,7 @@ private slots:
     void on_lineEditArgumentsOrder_textChanged(const QString &);
 
     void slotOnArgsDescription_Changed();
+//    void slotExitCodeChanged(const QString &codes);
 
 private:
 	void readSettings();

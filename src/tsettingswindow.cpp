@@ -9,6 +9,7 @@
 //#include <QtAlgorithms>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QRegExpValidator>
 
 //******************************************************************************
 tSettingsWindow::tSettingsWindow(QWidget *parent) :
@@ -35,8 +36,12 @@ tSettingsWindow::tSettingsWindow(QWidget *parent) :
     ui->labelSource->setAttribute(Qt::WA_Hover);
     ui->labelSource->installEventFilter(this);
 
+    // Не дадим пользователю ввести что-либо кроме цифр и пробелов
+    ui->exitCodesLineEdit->setValidator(new QRegExpValidator(QRegExp("^[0-9 ]+$"),this));
+
 	connect(this, SIGNAL(signalSettingsChanged()), SLOT(writeWindowSetting()) );
 	connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(writeProgramSetting()) );
+    connect(ui->exitCodesLineEdit, SIGNAL(textChanged(const QString&)),this,SIGNAL(signalExitCodesChanged(const QString &)));
 
 	readSettings();
 }
@@ -47,14 +52,22 @@ tSettingsWindow::~tSettingsWindow()
     delete ui;
 }
 
+//******************************************************************************
 QString tSettingsWindow::getFullProgramPath()
 {
     return ui->pathProgramLineEdit->text();
 }
 
+//******************************************************************************
 QString tSettingsWindow::getParsedArgs()
 {
     return parseArguments();
+}
+
+//******************************************************************************
+QString tSettingsWindow::getExitCodes()
+{
+    return ui->exitCodesLineEdit->text();
 }
 
 //******************************************************************************
@@ -71,6 +84,7 @@ void tSettingsWindow::writeProgramSetting()
 {
 	settWindow->beginGroup("SettingsProgram");
 		settWindow->setValue("ProgramProcessorPath", ui->pathProgramLineEdit->text());
+        settWindow->setValue("AcceptableExitCodes", ui->exitCodesLineEdit->text().trimmed());
         settWindow->setValue("ArgumentsOrder", ui->lineEditArgumentsOrder->text());
 
         settWindow->beginWriteArray("ArgumentsDescription");
@@ -96,6 +110,7 @@ void tSettingsWindow::readSettings()
     QString descArg;
 	settWindow->beginGroup("SettingsProgram");
 		ui->pathProgramLineEdit->setText(settWindow->value("ProgramProcessorPath", QString()).toString());
+        ui->exitCodesLineEdit->setText(settWindow->value("AcceptableExitCodes",QString()).toString());
         ui->lineEditArgumentsOrder->setText(settWindow->value("ArgumentsOrder").toString());
         int size = settWindow->beginReadArray("ArgumentsDescription");
         for (int i = 0; i < size; ++i) {
@@ -250,7 +265,7 @@ void tSettingsWindow::createDynamicInterface(QString nameArg, QString descArg)
 //******************************************************************************
 QString tSettingsWindow::parseArguments()
 {
-    QString textArgs = ui->lineEditArgumentsOrder->text();
+    QString textArgs = ui->lineEditArgumentsOrder->text().trimmed().replace(" ", "#");
 
     for(int i=0; i<mLabelArgs.size() && !mLabelArgs.isEmpty(); ++i)
     {
@@ -260,7 +275,6 @@ QString tSettingsWindow::parseArguments()
                          mArgsDescription.at(i)->toPlainText().replace("\n", "#").trimmed(),
                          Qt::CaseSensitive);
     }
-
     return textArgs;
 }
 
@@ -456,12 +470,20 @@ bool tSettingsWindow::eventFilter(QObject *obj, QEvent *evt)
     return false;
 }
 
+//******************************************************************************
 void tSettingsWindow::on_lineEditArgumentsOrder_textChanged(const QString &/*arg1*/)
 {
     ui->lineEditArgumentsOrder->setToolTip( parseArguments().replace("#", " ") );
 }
 
+//******************************************************************************
 void tSettingsWindow::slotOnArgsDescription_Changed()
 {
     on_lineEditArgumentsOrder_textChanged("");
 }
+
+////******************************************************************************
+//void tSettingsWindow::slotExitCodeChanged(const QString &codes)
+//{
+//    emit signalExitCodesChanged(codes);
+//}
