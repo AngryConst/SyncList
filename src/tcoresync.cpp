@@ -665,7 +665,7 @@ void tCoreSync::syncInThread(tDiffTable *table)
                 {
                     if( myProcess.exitStatus() == QProcess::NormalExit )
                     {
-                        if( mExitCodes.contains( myProcess.exitCode() ) )
+                        if(mExitCodes.isEmpty() || mExitCodes.contains( myProcess.exitCode() ) )
                         {
                             qWarning(logInfo()) << currentFile->source.absoluteFilePath() << "<FONT COLOR=green>Success</FONT>";
                             currentFile->isSync = true;
@@ -677,6 +677,7 @@ void tCoreSync::syncInThread(tDiffTable *table)
                                                      << " произошла ошибка: <FONT COLOR=red>"
                                                      << myProcess.errorString()
                                                      << " Код выхода: " << myProcess.exitCode()
+                                                     << " - не входит в список" << myProcess.exitCode()
                                                      << "</FONT>";
                            currentFile->sync = false;
 
