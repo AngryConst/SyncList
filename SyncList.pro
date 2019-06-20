@@ -8,6 +8,9 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
+win32{
+    QT += winextras
+}
 CONFIG += c++14
 
 TARGET = SyncList

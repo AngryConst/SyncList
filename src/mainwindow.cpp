@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QtCore>
 #include <QFileDialog>
 #include <QCheckBox>
 #include <QStringList>
@@ -10,6 +11,11 @@
 #include <QClipboard>
 #include "tlog.h"
 #include "logcategories.h"
+
+#ifdef Q_OS_WIN
+#include <QWinTaskbarButton>
+#include <QWinTaskbarProgress>
+#endif
 
 
 //******************************************************************************
@@ -78,6 +84,13 @@ ui->tableOfDifference->installEventFilter(this);
         commonSettings = new tSettingsWindow(this);
 
 
+#ifdef Q_OS_WIN
+    mTaskButton = new QWinTaskbarButton(this);
+    mTaskButton->setWindow(this->windowHandle());
+
+    mTaskProgress = mTaskButton->progress();
+    mTaskProgress->setVisible(true);
+#endif
 }
 
 //******************************************************************************
@@ -107,9 +120,12 @@ void MainWindow::slotAddDataToTable(tDiffTable *table, size_t eq, size_t newest,
 	}
 
 	mTable.reset( table );
-	ui->progressBar->setMinimum(0);
-	ui->progressBar->setMaximum(100);
+    ui->progressBar->setRange(0,100);
 	ui->progressBar->setValue(100);
+#ifdef Q_OS_WIN
+    mTaskProgress->setRange(0,100);
+    mTaskProgress->setValue(100);
+#endif
 
 	countEq = eq;
 	countNew = newest;
@@ -183,8 +199,10 @@ void MainWindow::slotShowData()
 	// Здесь mTable.size() - это количество уникальных папок
 	ui->tableOfDifference->setRowCount( tableSize + mTable->size() );
 
-	ui->progressBar->setMinimum(0);
-	ui->progressBar->setMaximum(mTable->size() - 1);
+    ui->progressBar->setRange(0, mTable->size() - 1);
+#ifdef Q_OS_WIN
+    mTaskProgress->setRange(0 ,mTable->size() - 1);
+#endif
 
 	QTableWidgetItem *item = nullptr;
 	unsigned countRow=0, countCol=0;
@@ -194,8 +212,11 @@ timer.start();
 	// Цикл по ключам словаря(Относительный путь)
 	for(tDiffTable::iterator currentDir=mTable->begin(); currentDir != mTable->end(); ++currentDir)
 	{
-		ui->progressBar->setValue( progressValue++ );
-
+        ui->progressBar->setValue( progressValue );
+#ifdef Q_OS_WIN
+        mTaskProgress->setValue( progressValue );
+#endif
+        ++progressValue;
 		// Для проверки первый ли это заход в цикл
 		bool isFirstLoop = true;
 
@@ -299,9 +320,15 @@ timer.start();
 //******************************************************************************
 void MainWindow::slotShowProgress(int min, int max, int current)
 {
-	ui->progressBar->setMinimum(min);
-	ui->progressBar->setMaximum(max);
+    ui->progressBar->setRange(min,max);
 	ui->progressBar->setValue( current );
+#ifdef Q_OS_WIN
+    mTaskProgress->setRange(min,max);
+    mTaskProgress->reset();
+    mTaskProgress->setValue( current );
+    mTaskProgress->setVisible(true);
+    mTaskProgress->show();
+#endif
 }
 
 //******************************************************************************
@@ -340,9 +367,13 @@ void MainWindow::on_diffButton_clicked()
 	ui->tableOfDifference->clear();
 	makeHeaderTable();
 
-	ui->progressBar->setMinimum(0);
-	ui->progressBar->setMaximum(0);
+    ui->progressBar->setRange(0,0);
 	ui->progressBar->setValue(0);
+#ifdef Q_OS_WIN
+    mTaskProgress->setRange(0,0);
+    mTaskProgress->setValue( 0 );
+#endif
+
 	emit signalMainDirs(listOfSourceDir, ui->dstDirEdit->text());
 }
 
@@ -502,7 +533,13 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *evt)
 		return QMainWindow::eventFilter(obj, evt);
 	}
 
-	return false;
+    return false;
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    mTaskButton->setWindow(this->windowHandle());
+    event->accept();
 }
 
 //******************************************************************************
@@ -681,9 +718,12 @@ void MainWindow::on_cancelButton_clicked()
 {
 	setEnableButtons(true);
 
-	ui->progressBar->setMinimum(0);
-	ui->progressBar->setMaximum(100);
+    ui->progressBar->setRange(0,100);
 	ui->progressBar->setValue(0);
+#ifdef Q_OS_WIN
+    mTaskProgress->setRange(0,100);
+    mTaskProgress->setValue( 0 );
+#endif
 
 	ui->pauseButton->setChecked(false);
 	qDebug(logInfo()) << "Синхронизация прервана пользователем";
@@ -699,7 +739,7 @@ void MainWindow::on_pauseButton_clicked(bool checked)
 }
 
 //******************************************************************************]
-const tSettingsWindow * const MainWindow::getSettings()
+const tSettingsWindow *MainWindow::getSettings()
 {
     return commonSettings;
 }

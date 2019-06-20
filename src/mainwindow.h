@@ -14,17 +14,18 @@ namespace Ui {
 class MainWindow;
 }
 
-
+class QWinTaskbarButton;
+class QWinTaskbarProgress;
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = 0);
+    explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    const tSettingsWindow  * const getSettings();
+    const tSettingsWindow  *getSettings();
 
 signals:
 	//! Сигнал передачи корневых директорий ядру, задания папки - приёмника и запуска обработки в отдельном потоке.
@@ -92,6 +93,7 @@ private:
 	void moveEvent(QMoveEvent *);
 	void keyPressEvent(QKeyEvent * event);
 	bool eventFilter(QObject *, QEvent *evt);
+    void showEvent(QShowEvent *event);
 
 	void makeHeaderTable();
 	void makeHeaderPath(unsigned countRow, QTableWidgetItem *item, tDiffTable::iterator iter);
@@ -104,6 +106,8 @@ private:
     Ui::MainWindow *ui;
 	QSplitter *mSplitter;
 	QMenu *menu;
+    QWinTaskbarProgress *mTaskProgress;
+    QWinTaskbarButton   *mTaskButton;
 
     QSettings *sett;
 	std::unique_ptr<tDiffTable> mTable;
