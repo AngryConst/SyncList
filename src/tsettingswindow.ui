@@ -197,6 +197,33 @@ p, li { white-space: pre-wrap; }
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_5">
          <item>
+          <widget class="QLabel" name="labelDiffFiles">
+           <property name="text">
+            <string>Файл сравнений: </string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBoxClearDiffFile">
+           <property name="text">
+            <string>Очистить файл сравнений (все синхронизируемые файлы будут помечены для синхронизации)</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="verticalSpacer">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
           <widget class="QLabel" name="label_5">
            <property name="text">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Здесь может быть ваша реклама :-).&lt;/p&gt;&lt;p&gt;Вкладка осталась со времен использования многопоточного поиска&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>

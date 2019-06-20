@@ -36,11 +36,14 @@ tSettingsWindow::tSettingsWindow(QWidget *parent) :
     ui->labelSource->setAttribute(Qt::WA_Hover);
     ui->labelSource->installEventFilter(this);
 
+    ui->labelDiffFiles->setText( ui->labelDiffFiles->text() + QDir::currentPath() + QDir::separator() + "ListOfSyncFilesFromMap.xml" );
+
     // Не дадим пользователю ввести что-либо кроме цифр и пробелов
     ui->exitCodesLineEdit->setValidator(new QRegExpValidator(QRegExp("^[0-9 ]+$"),this));
 
 	connect(this, SIGNAL(signalSettingsChanged()), SLOT(writeWindowSetting()) );
 	connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(writeProgramSetting()) );
+    connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(slotClearDiffFile()) );
     connect(ui->exitCodesLineEdit, SIGNAL(textChanged(const QString&)),this,SIGNAL(signalExitCodesChanged(const QString &)));
 
 	readSettings();
@@ -95,7 +98,29 @@ void tSettingsWindow::writeProgramSetting()
                 settWindow->setValue("Description", mArgsDescription.at(i)->toPlainText().trimmed());
             }
         settWindow->endArray();
-	settWindow->endGroup();
+        settWindow->endGroup();
+}
+
+//******************************************************************************
+void tSettingsWindow::slotClearDiffFile()
+{
+    if( ui->checkBoxClearDiffFile->isChecked() )
+    {
+        auto res = QMessageBox::information(this, "Очистка файла поиска различий",
+                                            "Вы уверены, что хотите очистить содержимое файла?",
+                                            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if( res == QMessageBox::Yes)
+        {
+            QFile fileListSync(QDir::currentPath() + QDir::separator() + "ListOfSyncFilesFromMap.xml");
+            if( !fileListSync.remove() )
+            {
+                QMessageBox::critical(this, "Ошибка очистки файла",
+                                      "Файл не был удалён, возможно его не существует.");
+            }
+
+        }
+        ui->checkBoxClearDiffFile->setChecked(false);
+    }
 }
 
 //******************************************************************************

@@ -32,6 +32,7 @@ signals:
 private slots:
 	void writeWindowSetting();
 	void writeProgramSetting();
+    void slotClearDiffFile();
 
     void on_findProgramButton_clicked();
 

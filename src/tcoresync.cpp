@@ -642,7 +642,7 @@ void tCoreSync::syncInThread(tDiffTable *table)
                 arguments = mArgsProgram.split("#",QString::SkipEmptyParts);
                 arguments.replaceInStrings("{DESTINATION}", mDstDir + "/" +
                                   currentFile->destination.relatePath() + "/" +
-                                  file.completeBaseName());
+                                  file.completeBaseName()+ "." +file.suffix());
                 arguments.replaceInStrings("{SOURCE}", currentFile->source.absoluteFilePath());
 //qDebug() << program << arguments;
 				QProcess myProcess;
