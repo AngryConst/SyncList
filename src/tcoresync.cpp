@@ -568,6 +568,94 @@ void tCoreSync::slotSynchroize()
 }
 
 //******************************************************************************
+void tCoreSync::processOneFile(QList<tDiffItem>::iterator currentFile)
+{
+    QString program = mProgramProcessor;
+    QStringList arguments;
+//	QString baseArguments = mArgsProgram.split(" ",QString::SkipEmptyParts);
+
+//    QStringList arguments = mArgsProgram.split(" ",QString::SkipEmptyParts);
+
+    // Только если для файла выбрана синхронизация
+    // И только если он был изменён (его дата новее)
+    if(  currentFile->sync &&
+        (currentFile->direction != tDirectSync::Equal) &&
+        !currentFile->source.name.isEmpty() )
+    {
+        QFileInfo file(currentFile->source.absoluteFilePath());
+
+//				arguments.clear();
+//                arguments << baseArguments;
+//                if((currentFile->source.size/1024/1024) > 1024)
+//                    arguments << "-v1g"; //Делаем архив многотомным, только если размер файла больше гигабайта
+//                arguments = mArgsProgram;
+        arguments = mArgsProgram.split("#",QString::SkipEmptyParts);
+        arguments.replaceInStrings("{DESTINATION}", mDstDir + "/" +
+                          currentFile->destination.relatePath() + "/" +
+                          file.completeBaseName()+ "." +file.suffix());
+        arguments.replaceInStrings("{SOURCE}", currentFile->source.absoluteFilePath());
+//qDebug() << program << arguments;
+        QProcess myProcess;
+//                QStringList argslist( arguments );
+        myProcess.start(program, arguments);
+
+        if( !myProcess.waitForFinished(-1) )
+        {
+            qCritical(logCritical()) << "Во время синхронизации файла "
+                                     << currentFile->source.absoluteFilePath()
+                                     << " произошла ошибка: <FONT COLOR=red>"
+                                     << myProcess.errorString()
+                                     << "</FONT>";
+
+            // Выключим признак синхронизации для файла, если были ошибки
+            // При этом он не будет помечен как синхронизированный в XML файле
+            currentFile->sync = false;
+        }
+        else
+        {
+            if( myProcess.exitStatus() == QProcess::NormalExit )
+            {
+                if(mExitCodes.isEmpty() || mExitCodes.contains( myProcess.exitCode() ) )
+                {
+                    qWarning(logInfo()) << currentFile->source.absoluteFilePath() << "<FONT COLOR=green>Success</FONT>";
+                    currentFile->isSync = true;
+                }
+                else
+                {
+                    qCritical(logCritical()) << "Во время синхронизации файла "
+                                             << currentFile->source.absoluteFilePath()
+                                             << " произошла ошибка: <FONT COLOR=red>"
+                                             << myProcess.errorString()
+                                             << " Код выхода: " << myProcess.exitCode()
+                                             << " - не входит в список допустимых: " << mExitCodes
+                                             << "</FONT>";
+                   currentFile->sync = false;
+
+                }
+
+            }
+            else
+                currentFile->isSync = true;
+        }
+    }
+}
+
+//******************************************************************************
+void tCoreSync::threadRunner(QList<tDiffItem>::iterator currentFile)
+{
+    QFuture<void> future = QtConcurrent::run(this, &tCoreSync::processOneFile, currentFile);
+    future.waitForFinished();
+
+    mutex.lock();
+    if (numUsedThreads > 0)
+    {
+        --numUsedThreads;
+        poolNotFull.wakeAll();
+    }
+    mutex.unlock();
+}
+
+//******************************************************************************
 // Выполняется в отдельном потоке, чтобы не замораживать интерфейс
 void tCoreSync::syncInThread(tDiffTable *table)
 {
@@ -587,11 +675,7 @@ void tCoreSync::syncInThread(tDiffTable *table)
 	int maximum = table->size() - 1;
 	int progressValue = 0;
 
-	QString program = mProgramProcessor;
-    QStringList arguments;
-//	QString baseArguments = mArgsProgram.split(" ",QString::SkipEmptyParts);
-
-//    QStringList arguments = mArgsProgram.split(" ",QString::SkipEmptyParts);
+    numUsedThreads = 0;
 
 	// Цикл по ключам словаря(Относительный путь)
 	for(tDiffTable::iterator currentDir=table->begin(); currentDir != table->end(); ++currentDir)
@@ -626,69 +710,15 @@ void tCoreSync::syncInThread(tDiffTable *table)
 				return;
 			}
 
-			// Только если для файла выбрана синхронизация
-			// И только если он был изменён (его дата новее)
-			if(  currentFile->sync &&
-				(currentFile->direction != tDirectSync::Equal) &&
-				!currentFile->source.name.isEmpty() )
-			{
-                QFileInfo file(currentFile->source.absoluteFilePath());
+            mutex.lock();
+            if(numUsedThreads == MaxConcurrent)
+                poolNotFull.wait(&mutex);
+            mutex.unlock();
 
-//				arguments.clear();
-//                arguments << baseArguments;
-//                if((currentFile->source.size/1024/1024) > 1024)
-//                    arguments << "-v1g"; //Делаем архив многотомным, только если размер файла больше гигабайта
-//                arguments = mArgsProgram;
-                arguments = mArgsProgram.split("#",QString::SkipEmptyParts);
-                arguments.replaceInStrings("{DESTINATION}", mDstDir + "/" +
-                                  currentFile->destination.relatePath() + "/" +
-                                  file.completeBaseName()+ "." +file.suffix());
-                arguments.replaceInStrings("{SOURCE}", currentFile->source.absoluteFilePath());
-//qDebug() << program << arguments;
-				QProcess myProcess;
-//                QStringList argslist( arguments );
-                myProcess.start(program, arguments);
-
-				if( !myProcess.waitForFinished(-1) )
-				{
-					qCritical(logCritical()) << "Во время синхронизации файла "
-											 << currentFile->source.absoluteFilePath()
-											 << " произошла ошибка: <FONT COLOR=red>"
-											 << myProcess.errorString()
-											 << "</FONT>";
-
-					// Выключим признак синхронизации для файла, если были ошибки
-					// При этом он не будет помечен как синхронизированный в XML файле
-					currentFile->sync = false;
-				}
-				else
-                {
-                    if( myProcess.exitStatus() == QProcess::NormalExit )
-                    {
-                        if(mExitCodes.isEmpty() || mExitCodes.contains( myProcess.exitCode() ) )
-                        {
-                            qWarning(logInfo()) << currentFile->source.absoluteFilePath() << "<FONT COLOR=green>Success</FONT>";
-                            currentFile->isSync = true;
-                        }
-                        else
-                        {
-                            qCritical(logCritical()) << "Во время синхронизации файла "
-                                                     << currentFile->source.absoluteFilePath()
-                                                     << " произошла ошибка: <FONT COLOR=red>"
-                                                     << myProcess.errorString()
-                                                     << " Код выхода: " << myProcess.exitCode()
-                                                     << " - не входит в список" << myProcess.exitCode()
-                                                     << "</FONT>";
-                           currentFile->sync = false;
-
-                        }
-
-                    }
-                    else
-                        currentFile->isSync = true;
-                }
-			}
-
+            mutex.lock();
+            ++numUsedThreads;
+            QtConcurrent::run(this, &tCoreSync::threadRunner, currentFile); // Не ждём завершения потока
+            mutex.unlock();
 		} // for currentFile
 	} // for currentDir
 

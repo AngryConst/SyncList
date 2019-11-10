@@ -33,8 +33,17 @@
      <property name="sizeConstraint">
       <enum>QLayout::SetDefaultConstraint</enum>
      </property>
-     <property name="margin">
-      <number>10</number>
+     <property name="leftMargin">
+      <number>15</number>
+     </property>
+     <property name="topMargin">
+      <number>15</number>
+     </property>
+     <property name="rightMargin">
+      <number>15</number>
+     </property>
+     <property name="bottomMargin">
+      <number>15</number>
      </property>
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
@@ -341,7 +350,7 @@
      <x>0</x>
      <y>0</y>
      <width>563</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu">

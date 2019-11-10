@@ -9,7 +9,8 @@
 #include <QObject>
 #include <QPair>
 #include <QSet>
-
+#include <QWaitCondition>
+#include <QMutex>
 
 
 #include "tfileinfo.h"
@@ -140,6 +141,13 @@ private:
 
 	void syncInThread(tDiffTable *table);
     void readProcProgSettings();
+    void processOneFile(QList<tDiffItem>::iterator currentFile);
+    void threadRunner(QList<tDiffItem>::iterator currentFile);
+
+    QWaitCondition poolNotFull;
+    QMutex mutex;
+    int numUsedThreads = 0;
+    const int MaxConcurrent = 1;
 };
 
 #endif // CORESYNC_H
