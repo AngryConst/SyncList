@@ -199,9 +199,9 @@ void MainWindow::slotShowData()
 	// Здесь mTable.size() - это количество уникальных папок
 	ui->tableOfDifference->setRowCount( tableSize + mTable->size() );
 
-    ui->progressBar->setRange(0, mTable->size() - 1);
+    ui->progressBar->setRange(0, tableSize);
 #ifdef Q_OS_WIN
-    mTaskProgress->setRange(0 ,mTable->size() - 1);
+    mTaskProgress->setRange(0 ,tableSize);
 #endif
 
 	QTableWidgetItem *item = nullptr;
@@ -212,11 +212,6 @@ timer.start();
 	// Цикл по ключам словаря(Относительный путь)
 	for(tDiffTable::iterator currentDir=mTable->begin(); currentDir != mTable->end(); ++currentDir)
 	{
-        ui->progressBar->setValue( progressValue );
-#ifdef Q_OS_WIN
-        mTaskProgress->setValue( progressValue );
-#endif
-        ++progressValue;
 		// Для проверки первый ли это заход в цикл
 		bool isFirstLoop = true;
 
@@ -225,6 +220,12 @@ timer.start();
 									   currentFile != currentDir.value().end();
 									   ++currentFile)
 		{
+            ui->progressBar->setValue( progressValue );
+#ifdef Q_OS_WIN
+            mTaskProgress->setValue( progressValue );
+#endif
+            ++progressValue;
+
 			// Пропускаем элемент, если кнопка не выбрана
 			if(!ui->equalButton->isChecked()  && currentFile->direction == Equal)
 				continue;
@@ -368,7 +369,7 @@ void MainWindow::on_diffButton_clicked()
 	makeHeaderTable();
 
     ui->progressBar->setRange(0,0);
-	ui->progressBar->setValue(0);
+    ui->progressBar->setValue(0);
 #ifdef Q_OS_WIN
     mTaskProgress->setRange(0,0);
     mTaskProgress->setValue( 0 );
@@ -719,7 +720,7 @@ void MainWindow::on_cancelButton_clicked()
 	setEnableButtons(true);
 
     ui->progressBar->setRange(0,100);
-	ui->progressBar->setValue(0);
+    ui->progressBar->setValue(0);
 #ifdef Q_OS_WIN
     mTaskProgress->setRange(0,100);
     mTaskProgress->setValue( 0 );

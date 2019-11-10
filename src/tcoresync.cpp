@@ -321,7 +321,7 @@ int tCoreSync::findCoincidence(const QFileInfo &elem, const QString &mDir)
 	if (index != -1)
 		return index + mDir.length() + 1;
 	else
-		qDebug() << "Произошла ошибка при сравнении путей, проверьте верно ли указаны директории для поиска";
+        qDebug(logWarning()) << "Произошла ошибка при сравнении путей, проверьте верно ли указаны директории для поиска";
 
 	return index;
 }
@@ -382,15 +382,11 @@ void tCoreSync::slotSaveMapToList(tDiffTable *table)
 		// Цикл по ключам словаря(Относительный путь)
 		for(tDiffTable::iterator currentDir=table->begin(); currentDir != table->end(); ++currentDir)
 		{
-			emit signalShowProgress(minimum, maximum, progressValue++ );
-
 			// Цикл по значениям словаря(Вектор с именами файлов)
 			for(QList<tDiffItem>::iterator currentFile =  currentDir.value().begin();
 										   currentFile != currentDir.value().end();
 										   ++currentFile)
 			{
-				emit signalShowProgress(minimum, maximum, progressValue++ );
-
 				// Только если для файла выбрана синхронизация
 				if(  currentFile->sync					&&
                      currentFile->isSync                &&
@@ -436,6 +432,7 @@ void tCoreSync::slotSaveMapToList(tDiffTable *table)
 				}
 			}//For file
 
+            emit signalShowProgress(minimum, maximum, ++progressValue );
 		}//For dir
 
 		stream.writeEndElement(); // maindir
@@ -638,14 +635,8 @@ void tCoreSync::processOneFile(QList<tDiffItem>::iterator currentFile)
                 currentFile->isSync = true;
         }
     }
-}
 
-//******************************************************************************
-void tCoreSync::threadRunner(QList<tDiffItem>::iterator currentFile)
-{
-    QFuture<void> future = QtConcurrent::run(this, &tCoreSync::processOneFile, currentFile);
-    future.waitForFinished();
-
+    // Разрешим запуск нового потока
     mutex.lock();
     if (numUsedThreads > 0)
     {
@@ -672,7 +663,7 @@ void tCoreSync::syncInThread(tDiffTable *table)
 	}
 
 	int minimum = 0;
-	int maximum = table->size() - 1;
+    int maximum = static_cast<int>( countNew );
 	int progressValue = 0;
 
     numUsedThreads = 0;
@@ -680,8 +671,6 @@ void tCoreSync::syncInThread(tDiffTable *table)
 	// Цикл по ключам словаря(Относительный путь)
 	for(tDiffTable::iterator currentDir=table->begin(); currentDir != table->end(); ++currentDir)
 	{
-		emit signalShowProgress(minimum, maximum, progressValue++ );
-
 		// Цикл по значениям словаря(Вектор с именами файлов)
 		for(QList<tDiffItem>::iterator currentFile =  currentDir.value().begin();
 									   currentFile != currentDir.value().end();
@@ -717,7 +706,9 @@ void tCoreSync::syncInThread(tDiffTable *table)
 
             mutex.lock();
             ++numUsedThreads;
-            QtConcurrent::run(this, &tCoreSync::threadRunner, currentFile); // Не ждём завершения потока
+
+            emit signalShowProgress(minimum, maximum, progressValue++ );
+            QtConcurrent::run(this, &tCoreSync::processOneFile, currentFile); // Не ждём завершения потока
             mutex.unlock();
 		} // for currentFile
 	} // for currentDir
