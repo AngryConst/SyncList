@@ -735,7 +735,8 @@ void tCoreSync::syncInThread(tDiffTable *table)
             mutex.lock();
             ++numUsedThreads;
 
-            emit signalShowProgress(minimum, maximum, progressValue++ );
+            if(currentFile->direction == Newest)
+                emit signalShowProgress(minimum, maximum, progressValue++ );
             QtConcurrent::run(this, &tCoreSync::processOneFile, currentFile); // Не ждём завершения потока
             mutex.unlock();
 		} // for currentFile
