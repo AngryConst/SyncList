@@ -25,7 +25,6 @@ int main(int argc, char *argv[])
 	qRegisterMetaType< size_t >(	"size_t");
 	qRegisterMetaType< QString >(	"QString&");
 
-	QObject::connect( &w,	  SIGNAL(signalReadXml()),				 &mCore, SLOT(slotReadList()) );
 	QObject::connect( &w,	  SIGNAL(signalSynchonize(tDiffTable*)), &mCore, SLOT(synchronization(tDiffTable*)) );
 	QObject::connect( &w,	  SIGNAL(signalSaveXml(tDiffTable*)),	 &mCore, SLOT(slotSaveMapToList(tDiffTable*)) );
 	QObject::connect( &mCore, SIGNAL(signalAddToTable(tDiffTable*,size_t,size_t,size_t)),

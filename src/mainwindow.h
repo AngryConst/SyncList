@@ -30,7 +30,6 @@ public:
 signals:
 	//! Сигнал передачи корневых директорий ядру, задания папки - приёмника и запуска обработки в отдельном потоке.
 	void signalMainDirs(QStringList &listSrc, QString dst);
-	void signalReadXml();				   //!< Сигнал для начала чтения файла с записями.
 	void signalSettingsChanged();		   //!< Сигнал, излучающийся при изменении настроек.
 	void signalSynchonize(tDiffTable */*table*/);			   //!< Сигнал для запуска синхронизации каталогов.
 	void signalShowTable();				   //!< Сигнал для отображения содержимого таблицы
@@ -96,8 +95,8 @@ private:
     void showEvent(QShowEvent *event);
 
 	void makeHeaderTable();
-	void makeHeaderPath(unsigned countRow, QTableWidgetItem *item, tDiffTable::iterator iter);
-	void makeGreyRow(unsigned countRow, QTableWidgetItem *item);
+    void makeHeaderPath(unsigned countRow, tDiffTable::iterator iter);
+    void makeGreyRow(unsigned countRow);
 
 	void setEnableButtons(bool enable);
 

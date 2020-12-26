@@ -134,8 +134,9 @@ void MainWindow::slotAddDataToTable(tDiffTable *table, size_t eq, size_t newest,
 }
 
 //******************************************************************************
-void MainWindow::makeHeaderPath(unsigned countRow, QTableWidgetItem *item, tDiffTable::iterator iter)
+void MainWindow::makeHeaderPath(unsigned countRow, tDiffTable::iterator iter)
 {
+    QTableWidgetItem *item;
 	item = new QTableWidgetItem();
 	item->setBackgroundColor(QColor::fromRgb(220,220,220)); // Серый цвет
 	item->setCheckState(Qt::Checked);
@@ -153,8 +154,9 @@ void MainWindow::makeHeaderPath(unsigned countRow, QTableWidgetItem *item, tDiff
 }
 
 //******************************************************************************
-void MainWindow::makeGreyRow(unsigned countRow, QTableWidgetItem *item)
+void MainWindow::makeGreyRow(unsigned countRow)
 {
+    QTableWidgetItem *item;
 	for(int c = 0; c < ui->tableOfDifference->columnCount(); ++c )
 	{
 		item = new QTableWidgetItem();
@@ -204,7 +206,7 @@ void MainWindow::slotShowData()
     mTaskProgress->setRange(0 ,tableSize);
 #endif
 
-	QTableWidgetItem *item = nullptr;
+    QTableWidgetItem *item = nullptr;
 	unsigned countRow=0, countCol=0;
 	size_t realCountDir=0, progressValue=0;
 QElapsedTimer timer;
@@ -220,11 +222,11 @@ timer.start();
 									   currentFile != currentDir.value().end();
 									   ++currentFile)
 		{
+            ++progressValue;
             ui->progressBar->setValue( progressValue );
 #ifdef Q_OS_WIN
             mTaskProgress->setValue( progressValue );
 #endif
-            ++progressValue;
 
 			// Пропускаем элемент, если кнопка не выбрана
 			if(!ui->equalButton->isChecked()  && currentFile->direction == Equal)
@@ -238,31 +240,31 @@ timer.start();
 			if(isFirstLoop)
 			{
 				++realCountDir;
-				makeGreyRow(countRow, item);
-				makeHeaderPath(countRow++, item, currentDir);
+                makeGreyRow(countRow);
+                makeHeaderPath(countRow++, currentDir);
 				isFirstLoop = false;
-			}
+            }
 
 			// В первый столбец поместим checkBox и указатель на элемент таблицы
 			QVariant var;
 			var.setValue<tDiffItemPtr>(&(*currentFile));
-			item = new QTableWidgetItem();
+            item = new QTableWidgetItem();
 			item->setData(Qt::DisplayRole, var);
 			item->setCheckState(Qt::Checked);
 			currentFile->sync = true;
 			ui->tableOfDifference->setItem(countRow, countCol++, item);
 
-			item = new QTableWidgetItem();
+            item = new QTableWidgetItem();
 			item->setData(Qt::DisplayRole, "  " + currentFile->source.name);
 			ui->tableOfDifference->setItem(countRow, countCol++, item);
 
-			item = new QTableWidgetItem();
+            item = new QTableWidgetItem();
 			item->setData(Qt::DisplayRole, currentFile->source.dateTime.toString("yyyy.MM.dd-hh:mm:ss.zzz"));
 			ui->tableOfDifference->setItem(countRow, countCol++, item);
 
 			if( !currentFile->source.name.isEmpty() )
-			{
-				item = new QTableWidgetItem();
+            {
+                item = new QTableWidgetItem();
 				item->setData(Qt::DisplayRole, currentFile->source.size);
 				item->setTextAlignment(Qt::AlignRight);
 				ui->tableOfDifference->setItem(countRow, countCol, item);
@@ -270,37 +272,37 @@ timer.start();
 
 			countCol++;
 
-			item = new QTableWidgetItem();
-			QString s;
+            item = new QTableWidgetItem();
+            const QString *s;
 			switch (currentFile->direction)
 			{
 				case Equal:
-					s = EqualStr;
+                    s = &EqualStr;
 					break;
 				case Newest:
-					s = NewestStr;
+                    s = &NewestStr;
 					break;
 				case Latest:
-					s = LatestStr;
+                    s = &LatestStr;
 					break;
 				default:
 					break;
 			}
-			item->setData(Qt::DisplayRole, s);
+            item->setData(Qt::DisplayRole, *s);
 			item->setTextAlignment(Qt::AlignCenter);
 			ui->tableOfDifference->setItem(countRow, countCol++, item);
 
-			item = new QTableWidgetItem();
+            item = new QTableWidgetItem();
 			item->setData(Qt::DisplayRole, "  " + currentFile->destination.name);
 			ui->tableOfDifference->setItem(countRow, countCol++, item);
 
-			item = new QTableWidgetItem();
+            item = new QTableWidgetItem();
 			item->setData(Qt::DisplayRole, currentFile->destination.dateTime.toString("yyyy.MM.dd-hh:mm:ss.zzz"));
 			ui->tableOfDifference->setItem(countRow, countCol++, item);
 
 			if( !currentFile->destination.name.isEmpty() )
-			{
-				item = new QTableWidgetItem();
+            {
+                item = new QTableWidgetItem();
 				item->setData(Qt::DisplayRole, currentFile->destination.size);
 				item->setTextAlignment(Qt::AlignRight);
 				ui->tableOfDifference->setItem(countRow, countCol++, item);

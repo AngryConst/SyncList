@@ -92,8 +92,8 @@ private slots:
 private:
 	QStringList mMainDirs;		  //!< Список корневых директорий - источников.
 	QString		mDstDir;		  //!< Папка - приёмник данных.
-	tFilesInfo filesInfoFromReal; //!< Рекурсивный список файлов из всех корневых директорий.
-	tFilesInfo filesInfoFromXml;  //!< Список файлов, прочитанный из сохранённого файла.
+    tFilesInfo filesInfoFromSrc;  //!< Рекурсивный список файлов из всех корневых директорий.
+    tFilesInfo filesInfoFromDst;  //!< Список файлов, прочитанный из сохранённого файла.
 
 	volatile size_t countEq;	  //!< Подсчёт общего количества одинаковых элементов.
 	volatile size_t countNew;	  //!< Подсчёт общего количества новых элементов.
@@ -106,6 +106,10 @@ private:
 	QString mProgramProcessor;
 	QString mArgsProgram;
 
+    bool mDirectComparison;       //!< Разрешить сравнение каталогов друг с другом, а не каталог с xml файлом.
+    bool mPartialMatch;           //!< Разрешить частичное совпадение имени файла.
+    std::atomic<int>  mSkipCharNumber;         //!< Скольно символов в конце имени файла надо отрезать, чтобы имена считались равными.
+
     QSet<int> mExitCodes;
 
 	/** \brief Добавляет все найденные в подкаталогах файлы в общий список.
@@ -113,8 +117,9 @@ private:
 	 * Осуществляет рекурсивный спуск. Выход из рекурсии - это отсутствие
 	 * подкаталогов ниже проверяемого каталога.
 	 * \param srcDir ссылка на текущую директорию.
-	 * \param mainDir_ ссылка на имя текущего корневого каталога*/
-	void getFileInfoList(const QDir &srcDir, const QString &mainDir_);
+     * \param mainDir_ ссылка на имя текущего корневого каталога
+     * \param fInfoMap ссылка на словарь, в который будем добавлять файлы*/
+    void getFileInfoList(const QDir &srcDir, const QString &mainDir_, tFilesInfo &fInfoMap);
 
 	/** \brief Ищет совпадения текущего пути до файла и пути до корневого каталога.
 	 *
@@ -122,7 +127,7 @@ private:
 	 * и пути корневого каталога. Например, "path" - без слеша в начале и конце)
 	 *
 	 * \retval -1, если совпадение не найдено, в противном случае индекс*/
-	int  findCoincidence(const QFileInfo &elem, const QString &mDir);
+    int  findMatch(const QFileInfo &elem, const QString &mDir);
 
 	void saveList();
 
@@ -137,7 +142,7 @@ private:
 	void compareSrcAndDst();
 
 	//! Функция для сравнения файлов).
-	tDiffItem compareFiles(tFileInfo &real_, tFileInfo & xmlFile);
+    tDiffItem compareFiles(tFileInfo &src, tFileInfo & dst);
 
 	void syncInThread(tDiffTable *table);
     void readProcProgSettings();

@@ -24,6 +24,9 @@ public:
     QString getFullProgramPath();
     QString getParsedArgs();
     QString getExitCodes();
+    bool    getPartialMatch();
+    bool    getDirectComparison();
+    int     getSkipCharNumber();
 
 signals:
 	void signalSettingsChanged();		   //!< Сигнал, излучающийся при изменении настроек.

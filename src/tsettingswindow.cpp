@@ -74,6 +74,24 @@ QString tSettingsWindow::getExitCodes()
 }
 
 //******************************************************************************
+bool tSettingsWindow::getPartialMatch()
+{
+    return ui->partialMatchBox->isChecked();
+}
+
+//******************************************************************************
+bool tSettingsWindow::getDirectComparison()
+{
+    return ui->directComparison->isChecked();
+}
+
+//******************************************************************************
+int tSettingsWindow::getSkipCharNumber()
+{
+    return ui->skipCharNumberBox->value();
+}
+
+//******************************************************************************
 void tSettingsWindow::writeWindowSetting()
 {
 	settWindow->beginGroup("SettingsWindow");
@@ -87,8 +105,8 @@ void tSettingsWindow::writeProgramSetting()
 {
 	settWindow->beginGroup("SettingsProgram");
 		settWindow->setValue("ProgramProcessorPath", ui->pathProgramLineEdit->text());
-        settWindow->setValue("AcceptableExitCodes", ui->exitCodesLineEdit->text().trimmed());
-        settWindow->setValue("ArgumentsOrder", ui->lineEditArgumentsOrder->text());
+        settWindow->setValue("AcceptableExitCodes",  ui->exitCodesLineEdit->text().trimmed());
+        settWindow->setValue("ArgumentsOrder",       ui->lineEditArgumentsOrder->text());
 
         settWindow->beginWriteArray("ArgumentsDescription");
             for(int i = 0; i<mLabelArgs.size() && !mLabelArgs.isEmpty(); ++i)
@@ -98,7 +116,10 @@ void tSettingsWindow::writeProgramSetting()
                 settWindow->setValue("Description", mArgsDescription.at(i)->toPlainText().trimmed());
             }
         settWindow->endArray();
-        settWindow->endGroup();
+        settWindow->setValue("DirectComparison", ui->directComparison->isChecked());
+        settWindow->setValue("PartialMatch",     ui->partialMatchBox->isChecked());
+        settWindow->setValue("SkipCharNumber",   ui->skipCharNumberBox->value());
+    settWindow->endGroup();
 }
 
 //******************************************************************************
@@ -145,6 +166,9 @@ void tSettingsWindow::readSettings()
             createDynamicInterface(nameArg,descArg);
         }
         settWindow->endArray();
+        ui->directComparison->setChecked(settWindow->value("DirectComparison", false).toBool());
+        ui->partialMatchBox->setChecked(settWindow->value("PartialMatch", false).toBool());
+        ui->skipCharNumberBox->setValue(settWindow->value("SkipCharNumber", 0).toInt());
 	settWindow->endGroup();
     on_lineEditArgumentsOrder_textChanged("");
 }

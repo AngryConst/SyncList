@@ -16,19 +16,7 @@ QString tFileInfo::dir()
 		if(temp.isEmpty())
 			return QString();
 		else
-		{
-			QString localString;
-			auto iter=temp.begin();
-
-			localString = localString + (*iter);
-			++iter;
-			for( ; iter!=temp.end(); ++iter)
-			{
-				if(!iter->isEmpty())
-					localString = localString + "/" + (*iter);
-			}
-			return localString; // Путь без слеша в конце
-		}
+            return temp.join("/");
 	}
 	else
 		return QString();
@@ -40,16 +28,17 @@ QString tFileInfo::relatePath()
 	if(path.isEmpty())
 		return QString();
 
-	QString localString;
-	auto iter=path.begin();
-	localString = localString + (*iter);
-	++iter;
-	for( ; iter!=path.end(); ++iter)
-	{
-		if(!iter->isEmpty())
-			localString = localString + "/" + (*iter);
-	}
-	return localString; // Путь без слеша в конце
+    return path.join("/"); // Путь без слеша в конце
+}
+//******************************************************************************
+QString tFileInfo::relatePathReduced()
+{
+    if(path.isEmpty())
+        return QString();
+
+    auto tmp = path;
+    tmp.removeFirst();
+    return tmp.join("/");
 }
 
 //******************************************************************************
@@ -64,14 +53,7 @@ QString tFileInfo::absolutePath()
 //******************************************************************************
 QString tFileInfo::relateFilePath()
 {
-	QString localString;
-	for( auto iter=path.begin(); iter!=path.end(); ++iter)
-	{
-		if(!iter->isEmpty())
-			localString = localString + (*iter) + "/";
-	}
-	localString.append(name);
-	return localString;
+    return path.join("/").append("/").append(name);
 }
 
 //******************************************************************************

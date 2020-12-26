@@ -11,6 +11,7 @@
 #include <QElapsedTimer>
 #include <QSettings>
 #include <QSet>
+#include <functional>
 
 #include "tsettingswindow.h"
 
@@ -31,7 +32,10 @@ void tCoreSync::readProcProgSettings()
 {
     tSettingsWindow sett; // В конструкторе автоматически считаются настройки
     mProgramProcessor = sett.getFullProgramPath();
-    mArgsProgram = sett.getParsedArgs();
+    mArgsProgram      = sett.getParsedArgs();
+    mPartialMatch     = sett.getPartialMatch();
+    mDirectComparison = sett.getDirectComparison();
+    mSkipCharNumber   = sett.getSkipCharNumber();
     slotSetExitCodes(sett.getExitCodes());
 }
 
@@ -39,24 +43,32 @@ void tCoreSync::readProcProgSettings()
 // Выбор корневых каталогов для анализа файлов
 void tCoreSync::collectSourceDir()
 {
-	// Запускаем функцию чтения списка из XML файла в отдельном потоке.
+    filesInfoFromDst.clear();
+    // Запускаем функцию чтения списка из XML файла (или реального каталога) в отдельном потоке.
 	// при большом количестве записей в файле даёт значительное преимущество в скорости
-	QFuture<void> readingList = QtConcurrent::run(this, &tCoreSync::slotReadList);
+    QFuture<void> readingList;
+    if(mDirectComparison)
+    {
+        QDir currentDirr( QDir::toNativeSeparators( mDstDir ) );
+        readingList = QtConcurrent::run(this, &tCoreSync::getFileInfoList, currentDirr, mDstDir, std::ref(filesInfoFromDst));
+    }
+    else
+        readingList = QtConcurrent::run(this, &tCoreSync::slotReadList);
 
 	// В это же время осуществляем получение списка файлов с реального диска
     // Выбираем одну директорию из списка за раз
-	filesInfoFromReal.clear();
+    filesInfoFromSrc.clear();
 
     for (auto oneDir = mMainDirs.begin(); oneDir != mMainDirs.end(); ++oneDir)
     {
-		// Считываем всё содержимое без подкаталогов
+        // Считываем всё содержимое без подкаталогов
         QDir currentDir( QDir::toNativeSeparators( *oneDir ) );
 
-		getFileInfoList( currentDir, *oneDir );
+        getFileInfoList( currentDir, *oneDir, filesInfoFromSrc);
     }
 
 	//Дождёмся завершения чтения файла
-	readingList.waitForFinished();
+    readingList.waitForFinished();
 
 	compareSrcAndDst();
 }
@@ -75,26 +87,26 @@ void tCoreSync::compareSrcAndDst()
 	countLate=0;
 
 	// Получаем список всех директорий с файламми
-	const auto &relateDirs = filesInfoFromReal.keys();
+    const auto &relateDirs = filesInfoFromSrc.keys();
 
 	// Проходим циклом по каждой директории
 	for(auto relDir=relateDirs.begin(); relDir != relateDirs.end(); ++relDir)
 	{
-		// Проверяем есть ли в XML файле папка, соответствующая папке на диске
-		if(	filesInfoFromXml.contains( *relDir ) )
+        // Проверяем есть ли в папке назначения папка, соответствующая папке на диске
+        if(	filesInfoFromDst.contains( *relDir ) )
 		{
-			auto &currenRealDir = filesInfoFromReal.value(*relDir);
-			auto &currenXmlDir = filesInfoFromXml.value(*relDir);
-			const auto &fnames = currenRealDir.keys();
+            auto &currenSrcDir = filesInfoFromSrc.value(*relDir);
+            auto &currenDstDir = filesInfoFromDst.value(*relDir);
+            const auto &fnames = currenSrcDir.keys();
 			for(auto fname=fnames.begin(); fname != fnames.end(); ++fname)
 			{
 				// Проверяем есть ли в XML файле файл, соответствующий файлу на диске
-				if(	currenXmlDir.contains( *fname ) )
+                if(	currenDstDir.contains( *fname ) )
 				{
-					tFileInfo realFile = currenRealDir.value(*fname);
-					tFileInfo xmlFile = currenXmlDir.value(*fname);
+                    tFileInfo srcFile = currenSrcDir.value(*fname);
+                    tFileInfo dstFile = currenDstDir.value(*fname);
 					// Обрабатываем результаты
-					tDiffItem result = compareFiles(realFile,xmlFile);
+                    tDiffItem result = compareFiles(srcFile,dstFile);
 
 					switch (result.direction)
 					{
@@ -120,20 +132,20 @@ void tCoreSync::compareSrcAndDst()
 				{
                     // Если файл отсутствует в XML файле, то создадим пустую запись для него
                     tDiffItem tableItem;
-                    tFileInfo left = currenRealDir.value(*fname);
+                    tFileInfo left = currenSrcDir.value(*fname);
                     tFileInfo right;
 
                     tableItem.setData( left, right, Newest );
                     ++countNew;
                     tableItem.destination.mainDirPath = tableItem.source.relatePath();
-                    tableItem.destination.path << tableItem.source.relatePath();
+                    tableItem.destination.path << tableItem.source.path;
                     (*diffTable)[tableItem.source.relatePath()].push_back( tableItem );
 				}
 			}
 		}
         else
         {
-            auto &currenRealDir = filesInfoFromReal.value(*relDir);
+            auto &currenRealDir = filesInfoFromSrc.value(*relDir);
             const auto &fnames = currenRealDir.keys();
             for(auto fname=fnames.begin(); fname != fnames.end(); ++fname)
             {
@@ -145,7 +157,7 @@ void tCoreSync::compareSrcAndDst()
                 tableItem.setData( left, right, Newest );
                 ++countNew;
                 tableItem.destination.mainDirPath = tableItem.source.relatePath();
-                tableItem.destination.path << tableItem.source.relatePath();
+                tableItem.destination.path << tableItem.source.path;
                 (*diffTable)[tableItem.source.relatePath()].push_back( tableItem );
             }
         }
@@ -158,8 +170,8 @@ void tCoreSync::compareSrcAndDst()
 	// и если есть, то помещаем их все в результирующую таблицу
 
     // Получаем 2 множества из ключей таблиц
-    const QSet<QString> &realDirectories = QSet<QString>::fromList( filesInfoFromReal.keys() );
-    const QSet<QString> &inXmlDirectories = QSet<QString>::fromList(filesInfoFromXml.keys() );
+    const QSet<QString> &realDirectories = QSet<QString>::fromList( filesInfoFromSrc.keys() );
+    const QSet<QString> &inXmlDirectories = QSet<QString>::fromList(filesInfoFromDst.keys() );
 
     // Вычитаем из одного множества другое и получаем те элементы, которые есть
     // в первом, но нет во втором
@@ -167,7 +179,7 @@ void tCoreSync::compareSrcAndDst()
 
     for(auto unusedDirs=subtractSets.begin(); unusedDirs != subtractSets.end(); ++unusedDirs)
     {
-        auto &currentDir = filesInfoFromXml.value(*unusedDirs);
+        auto &currentDir = filesInfoFromDst.value(*unusedDirs);
         for(auto unusedFile=currentDir.begin();
                  unusedFile != currentDir.end();
                ++unusedFile)
@@ -186,16 +198,16 @@ void tCoreSync::compareSrcAndDst()
 
     // Проверяем есть ли файлы в XML файле, которые отсутствуют на диске,
     // и если есть, то помещаем их все в результирующую таблицу
-    const auto &restRelateDirs = filesInfoFromXml.keys();
+    const auto &restRelateDirs = filesInfoFromDst.keys();
     for(auto relDir=restRelateDirs.begin(); relDir != restRelateDirs.end(); ++relDir)
     {
-        if(	filesInfoFromReal.contains( *relDir ) )
+        if(	filesInfoFromSrc.contains( *relDir ) )
         {
             // Получаем 2 множества из ключей таблиц
-            auto &currentRealFiles = filesInfoFromReal.value(*relDir);
+            auto &currentRealFiles = filesInfoFromSrc.value(*relDir);
             const QSet<QString> realFiles = QSet<QString>::fromList( currentRealFiles.keys() );
 
-            auto &currentXmlFiles = filesInfoFromXml.value(*relDir);
+            auto &currentXmlFiles = filesInfoFromDst.value(*relDir);
             const QSet<QString> inXmlFiels = QSet<QString>::fromList( currentXmlFiles.keys() );
 
             // Вычитаем из одного множества другое и получаем те элементы, которые есть
@@ -224,44 +236,51 @@ void tCoreSync::compareSrcAndDst()
 
 	qDebug(logDebug()) << "Сравнение списков и заполнение таблицы:" << timer.elapsed() << "ms";
 
-	filesInfoFromReal.clear();
-	filesInfoFromXml.clear();
+    filesInfoFromSrc.clear();
+    filesInfoFromDst.clear();
 
 	// Сообщаем, что таблица готова к отображению
 	emit signalAddToTable(diffTable, countEq, countNew, countLate);
 }
 
 //******************************************************************************
-tDiffItem tCoreSync::compareFiles(tFileInfo &real_, tFileInfo &xmlFile)
+tDiffItem tCoreSync::compareFiles(tFileInfo &src, tFileInfo &dst)
 {
 	tDiffItem tableItem;
 
-	if( real_.size == xmlFile.size)
-	{
-		if( real_.dateTime == xmlFile.dateTime )
-		{
-			tableItem.setData( real_, xmlFile, Equal );
-		}
-		else if( real_.dateTime > xmlFile.dateTime )
-		{
-			tableItem.setData( real_, xmlFile, Newest );
-		}
-		else if( real_.dateTime < xmlFile.dateTime )
-		{
-			tableItem.setData( real_, xmlFile, Latest );
-		}
-	}
-	else
-	{
-		if( real_.dateTime >= xmlFile.dateTime )
-		{
-			tableItem.setData( real_, xmlFile, Newest );
-		}
-		else if( real_.dateTime < xmlFile.dateTime )
-		{
-			tableItem.setData( real_, xmlFile, Latest );
-		}
-	}
+    if(mDirectComparison && mPartialMatch)
+    {
+        tableItem.setData( src, dst, Equal );
+    }
+    else
+    {
+        if( src.size == dst.size)
+        {
+            if( src.dateTime == dst.dateTime )
+            {
+                tableItem.setData( src, dst, Equal );
+            }
+            else if( src.dateTime > dst.dateTime )
+            {
+                tableItem.setData( src, dst, Newest );
+            }
+            else if( src.dateTime < dst.dateTime )
+            {
+                tableItem.setData( src, dst, Latest );
+            }
+        }
+        else
+        {
+            if( src.dateTime >= dst.dateTime )
+            {
+                tableItem.setData( src, dst, Newest );
+            }
+            else if( src.dateTime < dst.dateTime )
+            {
+                tableItem.setData( src, dst, Latest );
+            }
+        }
+    }
 
 	return tableItem;
 }
@@ -270,7 +289,7 @@ tDiffItem tCoreSync::compareFiles(tFileInfo &real_, tFileInfo &xmlFile)
 // !!! Рекурсивная функция. !!!
 // Осуществляет рекурсивный спуск. Выход из рекурсии - это отсутствие
 // подкаталогов ниже проверяемого каталога.
-void tCoreSync::getFileInfoList(const QDir &srcDir, const QString &mainDir_)
+void tCoreSync::getFileInfoList(const QDir &srcDir, const QString &mainDir_, tFilesInfo &fInfoMap)
 {
     const QFileInfoList &list = srcDir.entryInfoList( QDir::Files |
                                                       QDir::Dirs  |
@@ -281,22 +300,26 @@ void tCoreSync::getFileInfoList(const QDir &srcDir, const QString &mainDir_)
     for (auto elem = list.begin(); elem != list.end(); ++elem)
     {
         if(elem->isDir())
-			getFileInfoList( elem->absoluteFilePath(), mainDir_);
+            getFileInfoList( elem->absoluteFilePath(), mainDir_, fInfoMap);
         else
 		{
 			QDir currentDir( QDir::toNativeSeparators( mainDir_ ) );
 
 			oneFile.path << currentDir.dirName();
 
-			QString strpath = elem->dir().absolutePath().mid( findCoincidence(*elem, mainDir_) );
+            QString strpath = elem->dir().absolutePath().mid( findMatch(*elem, mainDir_) );
 			if( !strpath.isEmpty() )
-				oneFile.path << strpath;
+                oneFile.path << strpath.split("/");
 
-			oneFile.name = elem->fileName();
+            if(mPartialMatch && (&fInfoMap == &filesInfoFromDst))
+                oneFile.name = elem->fileName().chopped(mSkipCharNumber);
+            else
+                oneFile.name = elem->fileName();
+
 			oneFile.size = elem->size();
 			oneFile.dateTime = elem->lastModified();
 
-			filesInfoFromReal[ oneFile.relatePath() ][oneFile.name] = oneFile;
+            fInfoMap[ oneFile.relatePath() ][oneFile.name] = oneFile;
 			oneFile.path.clear();
 		}
     }
@@ -312,7 +335,7 @@ void tCoreSync::slotSetMainDirs(QStringList &mainDirs, QString dstDir)
 
 //******************************************************************************
 // Возвращает индекс, если совпадение найдено, в противном случае возвращает -1
-int tCoreSync::findCoincidence(const QFileInfo &elem, const QString &mDir)
+int tCoreSync::findMatch(const QFileInfo &elem, const QString &mDir)
 {
     int index = -1;
 
@@ -496,7 +519,7 @@ void tCoreSync::slotReadList()
 	if( output.open(QIODevice::ReadOnly) )
 	{
 		QXmlStreamReader xml(&output);
-		filesInfoFromXml.clear();
+        filesInfoFromDst.clear();
 		tFileInfo oneFile;
 		while (!xml.atEnd())
 		{
@@ -525,7 +548,7 @@ void tCoreSync::slotReadList()
 					oneFile.dateTime = QDateTime::fromString(attrib.value("Modif")
                                             .toString(), "yyyy.MM.dd-hh:mm:ss.zzz");
 					oneFile.mainDirPath = mDstDir;
-					filesInfoFromXml[oneFile.relatePath()][oneFile.name] = oneFile;
+                    filesInfoFromDst[oneFile.relatePath()][oneFile.name] = oneFile;
 
 					continue;
 				}
@@ -587,9 +610,14 @@ void tCoreSync::processOneFile(QList<tDiffItem>::iterator currentFile)
 //                    arguments << "-v1g"; //Делаем архив многотомным, только если размер файла больше гигабайта
 //                arguments = mArgsProgram;
         arguments = mArgsProgram.split("#",QString::SkipEmptyParts);
-        arguments.replaceInStrings("{DESTINATION}", mDstDir + "/" +
-                          currentFile->destination.relatePath() + "/" +
-                          file.completeBaseName()+ "." +file.suffix());
+        QString rpath;
+        if(mDirectComparison)
+            rpath = currentFile->destination.relatePathReduced();
+        else
+            rpath = currentFile->destination.relatePath();
+
+        arguments.replaceInStrings("{DESTINATION}", mDstDir + "/" + rpath + "/" +
+                                   file.completeBaseName()+ "." +file.suffix());
         arguments.replaceInStrings("{SOURCE}", currentFile->source.absoluteFilePath());
 //qDebug() << program << arguments;
         QProcess myProcess;
