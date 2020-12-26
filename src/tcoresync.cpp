@@ -391,7 +391,7 @@ void tCoreSync::slotSaveMapToList(tDiffTable *table)
 		stream.writeStartElement( "maindir" );
 
 		QDir currentDir( QDir::toNativeSeparators( table->begin().value().begin()->source.mainDir() ) );
-		stream.writeAttribute( "name", currentDir.dirName().toUtf8());qDebug() << currentDir.dirName().toUtf8();
+        stream.writeAttribute( "name", currentDir.dirName().toUtf8());//qDebug(logDebug()) << currentDir.dirName();
 
 		// Устанавливаем итератор на первый элемент списка для последующей проверки
 		auto lastElem = table->begin().value().begin();
@@ -435,7 +435,7 @@ void tCoreSync::slotSaveMapToList(tDiffTable *table)
 					// Проверяем сменилась ли текущая корневая директория
 					if( isMainDirChanged )
 					{
-						qDebug() << "dir is changed";
+//                        qDebug(logDebug()) << "dir is changed";
 						stream.writeEndElement(); // maindir
 						stream.writeStartElement( "maindir" );
 
@@ -515,7 +515,7 @@ void tCoreSync::synchronization(tDiffTable *table)
 void tCoreSync::slotReadList()
 {
 	QFile output(QDir::currentPath() + QDir::separator() + "ListOfSyncFilesFromMap.xml");
-    qDebug() << QDir::currentPath() + QDir::separator() + "ListOfSyncFilesFromMap.xml";
+    qDebug(logInfo()) << QDir::currentPath() + QDir::separator() + "ListOfSyncFilesFromMap.xml";
 	if( output.open(QIODevice::ReadOnly) )
 	{
 		QXmlStreamReader xml(&output);
