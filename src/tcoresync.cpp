@@ -248,7 +248,7 @@ tDiffItem tCoreSync::compareFiles(tFileInfo &src, tFileInfo &dst)
 {
 	tDiffItem tableItem;
 
-    if(mDirectComparison && mPartialMatch)
+    if(mDirectComparison && mPartialMatch) //TODO add additional comparison based on creation date
     {
         tableItem.setData( src, dst, Equal );
     }
